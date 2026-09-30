@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fortune-ai-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-30",
+  "vars": {
+    "AI_BASE_URL": "https://www.codex2api.com/v1",
+    "AI_MODEL": "deepseek-v4-flash-0731"
+  }
+}

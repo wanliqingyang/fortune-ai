@@ -44,4 +44,15 @@ src/
 
 当前 `src/services/chatService.ts` 是本地模拟回复。正式接入大模型时，只需要替换这个 service，并通过 Cloudflare Worker 等 Serverless 代理保护 API Key，聊天组件不需要重写。
 
+已提供可部署的 Worker 工程：`worker/`。它只允许本网站域名请求，并会把兼容 OpenAI Chat Completions 的请求安全转发至 `https://www.codex2api.com/v1`。部署前需要设置两项配置：
+
+```bash
+cd worker
+npm install
+npx wrangler secret put AI_API_KEY  # 输入中转密钥，不会写入 Git
+npx wrangler deploy
+```
+
+在 Cloudflare Worker 的 Settings → Variables and Secrets 中设置普通变量 `AI_MODEL`（填你中转平台实际可用的模型 ID），例如平台所提供的模型名。然后把部署得到的 `/chat` 地址写入前端配置并重新发布即可。
+
 另外，`src/domain/demoChart.ts` 只是演示数据，正式版本需要替换为可靠的节气、干支、时区和真太阳时计算逻辑。

@@ -3,3 +3,4 @@ node_modules.partial/
 dist/
 .DS_Store
 *.local
+worker/node_modules/

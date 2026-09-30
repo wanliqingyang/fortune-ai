@@ -31,6 +31,8 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_CHAT_API_URL: ${{ vars.CHAT_API_URL }}
         run: npm run build
 
       - name: Upload Pages artifact

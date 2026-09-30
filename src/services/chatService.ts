@@ -1,4 +1,9 @@
-import type { ChartResult } from '../types';
+import type { ChartResult, ChatMessage } from '../types';
+
+const chatApiUrl = import.meta.env.VITE_CHAT_API_URL?.trim()
+  || 'https://cool-wood-8985.paint-behavior.workers.dev/chat';
+
+export const isRemoteChatConfigured = Boolean(chatApiUrl);
 
 /** 后续接入 API 时，只需要替换这个 service，不需要改聊天组件。 */
 export function getLocalAssistantReply(question: string, chart: ChartResult): string {
@@ -13,4 +18,30 @@ export function getLocalAssistantReply(question: string, chart: ChartResult): st
     return '这部分只做文化角度的参考：先建立稳定的预算和风险边界，再谈机会。任何投资决定都应该基于可靠信息和自己的承受能力。';
   }
   return '我会结合你的基础命盘，用传统命理的角度陪你梳理。你可以继续问工作、关系、近期状态，或直接告诉我最近最困扰你的事情。';
+}
+
+/**
+ * 生产环境通过 Cloudflare Worker 调用模型。未配置 Worker 地址时保留本地演示，
+ * 这样 GitHub Pages 在后端尚未发布时仍然可以正常预览。
+ */
+export async function getAssistantReply(messages: ChatMessage[], chart: ChartResult): Promise<string> {
+  const latestQuestion = messages[messages.length - 1]?.content ?? '';
+  if (!chatApiUrl) return getLocalAssistantReply(latestQuestion, chart);
+
+  let response: Response;
+  try {
+    response = await fetch(chatApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chart,
+        messages: messages.slice(-12).map(({ role, content }) => ({ role, content })),
+      }),
+    });
+  } catch {
+    throw new Error('AI 服务暂时无法连接，请稍后再试。');
+  }
+  const data = await response.json().catch(() => null) as { content?: string; error?: string } | null;
+  if (!response.ok || !data?.content) throw new Error(data?.error ?? 'AI 服务暂时不可用，请稍后再试。');
+  return data.content;
 }
