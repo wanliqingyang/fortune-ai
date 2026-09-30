@@ -17,15 +17,24 @@ export default function ChatPanel({ chart, onBack }: ChatPanelProps) {
     if (!question || remaining <= 0 || isSending) return;
     const nextMessages: ChatMessage[] = [...messages, { id: crypto.randomUUID(), role: 'user', content: question }];
     setInput('');
-    setMessages(nextMessages);
     setRemaining((current) => current - 1);
     setIsSending(true);
+    const assistantId = crypto.randomUUID();
+    setMessages([...nextMessages, { id: assistantId, role: 'assistant', content: '' }]);
     try {
-      const reply = await getAssistantReply(nextMessages, chart);
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content: reply }]);
+      const reply = await getAssistantReply(nextMessages, chart, (delta) => {
+        setMessages((current) => current.map((message) => (
+          message.id === assistantId ? { ...message, content: message.content + delta } : message
+        )));
+      });
+      setMessages((current) => current.map((message) => (
+        message.id === assistantId ? { ...message, content: reply } : message
+      )));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'AI 服务暂时不可用，请稍后再试。';
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content: message }]);
+      setMessages((current) => current.map((item) => (
+        item.id === assistantId ? { ...item, content: message } : item
+      )));
     } finally {
       setIsSending(false);
     }

@@ -24,7 +24,11 @@ export function getLocalAssistantReply(question: string, chart: ChartResult): st
  * 生产环境通过 Cloudflare Worker 调用模型。未配置 Worker 地址时保留本地演示，
  * 这样 GitHub Pages 在后端尚未发布时仍然可以正常预览。
  */
-export async function getAssistantReply(messages: ChatMessage[], chart: ChartResult): Promise<string> {
+export async function getAssistantReply(
+  messages: ChatMessage[],
+  chart: ChartResult,
+  onDelta?: (delta: string) => void,
+): Promise<string> {
   const latestQuestion = messages[messages.length - 1]?.content ?? '';
   if (!chatApiUrl) return getLocalAssistantReply(latestQuestion, chart);
 
@@ -35,12 +39,50 @@ export async function getAssistantReply(messages: ChatMessage[], chart: ChartRes
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chart,
-        messages: messages.slice(-12).map(({ role, content }) => ({ role, content })),
+        messages: messages.slice(-8).map(({ role, content }) => ({ role, content })),
       }),
     });
   } catch {
     throw new Error('AI 服务暂时无法连接，请稍后再试。');
   }
+  if (response.headers.get('content-type')?.includes('text/event-stream') && response.body) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let content = '';
+
+    const consume = (chunk: string) => {
+      buffer += chunk;
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() ?? '';
+      for (const event of events) {
+        for (const line of event.split(/\r?\n/)) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+            if (typeof delta === 'string' && delta) {
+              content += delta;
+              onDelta?.(delta);
+            }
+          } catch {
+            // Ignore incomplete or provider-specific SSE frames.
+          }
+        }
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      consume(decoder.decode(value, { stream: true }));
+    }
+    consume(decoder.decode());
+    if (!content.trim()) throw new Error('AI 服务没有返回有效内容。');
+    return content.trim();
+  }
+
   const data = await response.json().catch(() => null) as { content?: string; error?: string } | null;
   if (!response.ok || !data?.content) throw new Error(data?.error ?? 'AI 服务暂时不可用，请稍后再试。');
   return data.content;

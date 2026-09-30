@@ -23,6 +23,8 @@ interface ChatRequest {
 const ALLOWED_ORIGIN = 'https://wanliqingyang.github.io';
 const MAX_MESSAGES = 16;
 const MAX_MESSAGE_LENGTH = 500;
+const MAX_CONTEXT_MESSAGES = 8;
+const MAX_OUTPUT_TOKENS = 480;
 
 function corsHeaders(origin: string | null): HeadersInit {
   return {
@@ -103,14 +105,26 @@ export default {
       body: JSON.stringify({
         model: env.AI_MODEL || 'deepseek-v4-flash-0731',
         temperature: 0.7,
-        max_tokens: 700,
-        messages: [{ role: 'system', content: systemPrompt(payload.chart) }, ...payload.messages],
+        max_tokens: MAX_OUTPUT_TOKENS,
+        stream: true,
+        messages: [{ role: 'system', content: systemPrompt(payload.chart) }, ...payload.messages.slice(-MAX_CONTEXT_MESSAGES)],
       }),
     });
 
     if (!upstream.ok) {
       console.error('Upstream AI request failed', upstream.status);
       return json({ error: 'AI 服务暂时不可用，请稍后再试。' }, 502, origin);
+    }
+
+    if (upstream.body && upstream.headers.get('content-type')?.includes('text/event-stream')) {
+      return new Response(upstream.body, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          ...corsHeaders(origin),
+        },
+      });
     }
 
     const result = await upstream.json() as { choices?: Array<{ message?: { content?: string } }> };
