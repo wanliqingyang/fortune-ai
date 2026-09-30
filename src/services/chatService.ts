@@ -1,7 +1,7 @@
 import type { ChartResult, ChatMessage } from '../types';
 
 const chatApiUrl = import.meta.env.VITE_CHAT_API_URL?.trim()
-  || 'https://cool-wood-8985.paint-behavior.workers.dev/chat';
+  || 'https://fortune-ai-api.1907386266.workers.dev/chat';
 
 export const isRemoteChatConfigured = Boolean(chatApiUrl);
 
