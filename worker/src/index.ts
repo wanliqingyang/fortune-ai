@@ -82,8 +82,8 @@ export default {
     if (request.method !== 'POST' || new URL(request.url).pathname !== '/chat') {
       return json({ error: '接口不存在。' }, 404, origin);
     }
-    if (!env.AI_API_KEY || !env.AI_MODEL) {
-      return json({ error: 'AI 服务尚未配置完成。' }, 503, origin);
+    if (!env.AI_API_KEY) {
+      return json({ error: 'AI 服务尚未配置完成：缺少 API Key。' }, 503, origin);
     }
 
     let payload: unknown;
@@ -101,7 +101,7 @@ export default {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: env.AI_MODEL,
+        model: env.AI_MODEL || 'deepseek-v4-flash-0731',
         temperature: 0.7,
         max_tokens: 700,
         messages: [{ role: 'system', content: systemPrompt(payload.chart) }, ...payload.messages],
